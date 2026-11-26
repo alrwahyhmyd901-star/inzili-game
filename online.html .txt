@@ -1,0 +1,2200 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>لعبة انزلي — نموذج أولي متكامل</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@500;600;700;800;900&display=swap" rel="stylesheet" />
+  <style>
+    /* Luxury emerald green, burgundy, and gold design tokens */
+    :root {
+      --emerald-main: #0b3b28;
+      --emerald-deep: #062418;
+      --burgundy-main: #4a0e17;
+      --burgundy-deep: #2b060c;
+      --gold-accent: #d4af37;
+      --gold-bright: #f5d77f;
+    }
+
+    * {
+      box-sizing: border-box;
+      user-select: none;
+    }
+
+    input,
+    textarea,
+    select {
+      user-select: text;
+    }
+
+    body {
+      font-family: 'Cairo', system-ui, -apple-system, sans-serif;
+      background:
+        radial-gradient(circle at 16% 10%, rgba(212, 175, 55, 0.16), transparent 36%),
+        radial-gradient(circle at 84% 16%, rgba(74, 14, 23, 0.62), transparent 44%),
+        linear-gradient(155deg, var(--emerald-main) 0%, var(--emerald-deep) 58%, #041810 100%);
+      color: #f8fafc;
+      min-height: 100vh;
+      margin: 0;
+      overflow-x: hidden;
+    }
+
+    .luxury-surface {
+      background: linear-gradient(145deg, rgba(11, 59, 40, 0.92), rgba(6, 36, 24, 0.96));
+      border: 1.5px solid rgba(212, 175, 55, 0.38);
+      box-shadow: 0 18px 42px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(245, 215, 127, 0.22);
+    }
+
+    .burgundy-panel {
+      background: linear-gradient(145deg, rgba(74, 14, 23, 0.9), rgba(43, 6, 12, 0.95));
+      border: 1.5px solid rgba(212, 175, 55, 0.34);
+      box-shadow: 0 14px 32px rgba(0, 0, 0, 0.38), inset 0 1px 0 rgba(245, 215, 127, 0.18);
+    }
+
+    .gold-cta {
+      background: linear-gradient(135deg, var(--gold-bright), var(--gold-accent) 55%, #b38b22);
+      color: #1e1304;
+      font-weight: 900;
+      box-shadow: 0 8px 20px rgba(212, 175, 55, 0.28);
+      transition: transform 0.15s ease, filter 0.15s ease;
+    }
+
+    .gold-cta:hover:not(:disabled) {
+      filter: brightness(1.06);
+      transform: translateY(-1px);
+    }
+
+    .gold-cta:disabled,
+    .inzili-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .playing-card {
+      width: 82px;
+      height: 118px;
+      border-radius: 12px;
+      background: linear-gradient(165deg, #fffdf7 0%, #f5eedc 100%);
+      border: 2px solid rgba(212, 175, 55, 0.72);
+      box-shadow: 0 8px 18px rgba(0, 0, 0, 0.36);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 6px 8px;
+      position: relative;
+      flex-shrink: 0;
+      transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+    }
+
+    @media (min-width: 768px) {
+      .playing-card {
+        width: 92px;
+        height: 132px;
+        padding: 7px 9px;
+      }
+    }
+
+    .playing-card.selected {
+      transform: translateY(-11px);
+      border-color: #f5d77f;
+      box-shadow: 0 14px 24px rgba(245, 215, 127, 0.35), 0 0 0 2px rgba(245, 215, 127, 0.65);
+    }
+
+    .card-back {
+      background:
+        repeating-linear-gradient(
+          45deg,
+          rgba(212, 175, 55, 0.14) 0px,
+          rgba(212, 175, 55, 0.14) 4px,
+          transparent 4px,
+          transparent 10px
+        ),
+        linear-gradient(145deg, #4a0e17, #2b060c);
+      border: 2px solid rgba(245, 215, 127, 0.65);
+      color: var(--gold-bright);
+    }
+
+    .suit-red {
+      color: #b91c1c;
+    }
+
+    .suit-black {
+      color: #111827;
+    }
+  </style>
+</head>
+<body class="p-3 sm:p-5 lg:p-6">
+  <div class="max-w-7xl mx-auto space-y-4">
+    <!-- Top Header Bar -->
+    <header class="luxury-surface rounded-2xl px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl burgundy-panel flex items-center justify-center text-amber-300 font-black text-lg border border-amber-400/50">
+          ♠
+        </div>
+        <div>
+          <h1 class="text-lg sm:text-2xl font-black text-amber-200 tracking-tight">لعبة انزلي</h1>
+          <p id="header-subtitle" class="text-xs text-emerald-100/80 font-semibold">نموذج أولي متكامل — محلي وغرف أونلاين</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2 flex-wrap">
+        <span id="transport-badge" class="px-3 py-1.5 rounded-xl bg-black/40 border border-amber-400/35 text-xs font-black text-amber-200">
+          الوضع: محلي
+        </span>
+        <button
+          type="button"
+          id="btn-open-rules"
+          class="px-3.5 py-2 rounded-xl bg-emerald-950/90 hover:bg-emerald-900 border border-amber-400/40 text-xs sm:text-sm font-bold text-amber-200 cursor-pointer transition"
+        >
+          القواعد
+        </button>
+        <button
+          type="button"
+          id="btn-back-setup"
+          class="hidden px-3.5 py-2 rounded-xl burgundy-panel hover:brightness-110 border border-amber-400/40 text-xs sm:text-sm font-bold text-amber-200 cursor-pointer transition"
+        >
+          شاشة ما قبل اللعب
+        </button>
+      </div>
+    </header>
+
+    <!-- Status Banner -->
+    <div id="status-banner" class="burgundy-panel rounded-2xl px-4 py-2.5 text-xs sm:text-sm font-bold text-amber-100 flex flex-wrap items-center justify-between gap-2">
+      <span id="status-text">اختر نمط اللعب أو أنشئ/انضم إلى غرفة أونلاين للبدء.</span>
+      <span id="limit-pill" class="px-2.5 py-0.5 rounded-lg bg-black/35 border border-amber-400/30 text-amber-300 text-xs font-black shrink-0">
+        الحد: ٢٥٠
+      </span>
+    </div>
+
+    <!-- Pre-Game Setup & Online Room Lobby -->
+    <section id="setup-screen" class="luxury-surface rounded-3xl p-4 sm:p-6 lg:p-7 space-y-5">
+      <div class="flex flex-wrap items-center justify-between gap-2 border-b border-amber-400/20 pb-3">
+        <div>
+          <h2 class="text-base sm:text-xl font-black text-amber-200">إعداد المباراة والغرف</h2>
+          <p class="text-xs text-emerald-100/80">العب مع الشلة أو بوت، أو أنشئ غرفة مع رابط دعوة تلقائي أو انضم برمز/رابط</p>
+        </div>
+        <span id="lock-status-badge" class="px-3 py-1 rounded-xl bg-emerald-950/80 border border-amber-400/30 text-xs font-bold text-emerald-200">
+          الإعدادات متاحة
+        </span>
+      </div>
+
+      <!-- Mode & Player Count -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div class="burgundy-panel rounded-2xl p-4 space-y-2.5">
+          <div class="flex items-center justify-between">
+            <span class="text-xs sm:text-sm font-extrabold text-amber-200">نمط اللعب</span>
+            <span id="mode-hint-text" class="text-[11px] text-amber-100/80 font-bold">اللعب مع الشلة</span>
+          </div>
+          <div class="grid grid-cols-3 gap-2">
+            <button
+              type="button"
+              id="mode-shilla-btn"
+              class="py-2.5 px-2 rounded-xl border font-black text-xs sm:text-sm cursor-pointer transition"
+            >
+              مع الشلة
+            </button>
+            <button
+              type="button"
+              id="mode-bot-btn"
+              class="py-2.5 px-2 rounded-xl border font-black text-xs sm:text-sm cursor-pointer transition"
+            >
+              مع بوت
+            </button>
+            <button
+              type="button"
+              id="mode-online-btn"
+              class="py-2.5 px-2 rounded-xl border font-black text-xs sm:text-sm cursor-pointer transition"
+            >
+              غرفة أونلاين
+            </button>
+          </div>
+        </div>
+
+        <div class="burgundy-panel rounded-2xl p-4 space-y-2.5">
+          <div class="flex items-center justify-between">
+            <span class="text-xs sm:text-sm font-extrabold text-amber-200">عدد اللاعبين</span>
+            <span class="text-[11px] text-amber-100/80 font-bold">٢ أو ٣ أو ٤</span>
+          </div>
+          <div class="grid grid-cols-3 gap-2">
+            <button
+              type="button"
+              id="count-2-btn"
+              class="py-2.5 px-2 rounded-xl border font-black text-xs sm:text-sm cursor-pointer transition"
+            >
+              ٢ لاعبين
+            </button>
+            <button
+              type="button"
+              id="count-3-btn"
+              class="py-2.5 px-2 rounded-xl border font-black text-xs sm:text-sm cursor-pointer transition"
+            >
+              ٣ لاعبين
+            </button>
+            <button
+              type="button"
+              id="count-4-btn"
+              class="py-2.5 px-2 rounded-xl border font-black text-xs sm:text-sm cursor-pointer transition"
+            >
+              ٤ لاعبين
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Local Names -->
+      <div id="local-names-block" class="space-y-2.5">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <span class="text-xs sm:text-sm font-extrabold text-amber-200">أسماء اللاعبين</span>
+          <span class="text-[11px] text-emerald-100/80">تُقفل الأسماء أثناء المباراة حتى الوصول لحد الخسارة</span>
+        </div>
+
+        <div id="names-inputs-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div id="name-card-0" class="burgundy-panel rounded-2xl p-3.5 space-y-1.5">
+            <label for="player-name-input-0" class="block text-xs font-extrabold text-amber-200">اللاعب ١</label>
+            <input
+              type="text"
+              id="player-name-input-0"
+              maxlength="18"
+              class="w-full px-3 py-2 rounded-xl bg-black/35 border border-amber-400/35 text-sm font-bold text-white focus:outline-none focus:border-amber-300"
+            />
+          </div>
+
+          <div id="name-card-1" class="burgundy-panel rounded-2xl p-3.5 space-y-1.5">
+            <label for="player-name-input-1" class="block text-xs font-extrabold text-amber-200">اللاعب ٢</label>
+            <input
+              type="text"
+              id="player-name-input-1"
+              maxlength="18"
+              class="w-full px-3 py-2 rounded-xl bg-black/35 border border-amber-400/35 text-sm font-bold text-white focus:outline-none focus:border-amber-300"
+            />
+          </div>
+
+          <div id="name-card-2" class="burgundy-panel rounded-2xl p-3.5 space-y-1.5">
+            <label for="player-name-input-2" class="block text-xs font-extrabold text-amber-200">اللاعب ٣</label>
+            <input
+              type="text"
+              id="player-name-input-2"
+              maxlength="18"
+              class="w-full px-3 py-2 rounded-xl bg-black/35 border border-amber-400/35 text-sm font-bold text-white focus:outline-none focus:border-amber-300"
+            />
+          </div>
+
+          <div id="name-card-3" class="burgundy-panel rounded-2xl p-3.5 space-y-1.5">
+            <label for="player-name-input-3" class="block text-xs font-extrabold text-amber-200">اللاعب ٤</label>
+            <input
+              type="text"
+              id="player-name-input-3"
+              maxlength="18"
+              class="w-full px-3 py-2 rounded-xl bg-black/35 border border-amber-400/35 text-sm font-bold text-white focus:outline-none focus:border-amber-300"
+            />
+          </div>
+        </div>
+      </div>
+
+      <!-- Online Room Creation & Join -->
+      <div id="online-room-block" class="hidden space-y-4">
+        <div id="invite-link-notice" class="hidden burgundy-panel rounded-2xl p-3.5 border border-amber-300/60 flex flex-wrap items-center justify-between gap-2">
+          <span id="invite-link-notice-text" class="text-xs sm:text-sm font-extrabold text-amber-200">
+            تم اكتشاف رمز غرفة من الرابط الدعوي؛ اكتب اسمك ثم اضغط «انضمام للغرفة».
+          </span>
+        </div>
+
+        <div class="burgundy-panel rounded-2xl p-4 space-y-3">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <span class="text-xs sm:text-sm font-black text-amber-200">مزامنة الغرف (Supabase Realtime أو محاكاة متعددة التبويبات)</span>
+            <span class="text-[11px] text-emerald-100/80">بدون مفاتيح يعمل عبر BroadcastChannel لتجربة التبويبات فوراً</span>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <label for="supabase-url-input" class="block text-xs font-bold text-amber-100 mb-1">Supabase Project URL (اختياري)</label>
+              <input
+                type="text"
+                id="supabase-url-input"
+                placeholder="https://xxxxxxxxxxxx.supabase.co"
+                class="w-full px-3 py-2 rounded-xl bg-black/35 border border-amber-400/35 text-xs sm:text-sm font-semibold text-white focus:outline-none focus:border-amber-300"
+              />
+            </div>
+            <div>
+              <label for="supabase-key-input" class="block text-xs font-bold text-amber-100 mb-1">Supabase Anon Key (اختياري)</label>
+              <input
+                type="password"
+                id="supabase-key-input"
+                placeholder="eyJhbGciOiJIUzI1NiIs..."
+                class="w-full px-3 py-2 rounded-xl bg-black/35 border border-amber-400/35 text-xs sm:text-sm font-semibold text-white focus:outline-none focus:border-amber-300"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div class="burgundy-panel rounded-2xl p-4 space-y-3">
+            <h3 class="text-sm font-black text-amber-200">إنشاء غرفة وتوليد رابط دعوة تلقائي</h3>
+            <div>
+              <label for="online-host-name" class="block text-xs font-extrabold text-amber-100 mb-1">اسمك كمنشئ غرفة</label>
+              <input
+                type="text"
+                id="online-host-name"
+                maxlength="18"
+                value="لاعب ١"
+                class="w-full px-3 py-2 rounded-xl bg-black/35 border border-amber-400/35 text-sm font-bold text-white focus:outline-none focus:border-amber-300"
+              />
+            </div>
+            <div class="flex justify-end">
+              <button
+                type="button"
+                id="btn-create-online-room"
+                class="gold-cta px-6 py-2.5 rounded-2xl text-xs sm:text-sm cursor-pointer"
+              >
+                إنشاء غرفة ورابط دعوة
+              </button>
+            </div>
+          </div>
+
+          <div class="burgundy-panel rounded-2xl p-4 space-y-3">
+            <h3 class="text-sm font-black text-amber-200">الانضمام إلى غرفة موجودة</h3>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label for="online-join-name" class="block text-xs font-extrabold text-amber-100 mb-1">اسمك</label>
+                <input
+                  type="text"
+                  id="online-join-name"
+                  maxlength="18"
+                  value="لاعب ٢"
+                  class="w-full px-3 py-2 rounded-xl bg-black/35 border border-amber-400/35 text-sm font-bold text-white focus:outline-none focus:border-amber-300"
+                />
+              </div>
+              <div>
+                <label for="online-join-code" class="block text-xs font-extrabold text-amber-100 mb-1">رمز الغرفة</label>
+                <input
+                  type="text"
+                  id="online-join-code"
+                  maxlength="12"
+                  placeholder="INZ-408"
+                  class="w-full px-3 py-2 rounded-xl bg-black/35 border border-amber-400/35 text-sm font-bold text-white uppercase focus:outline-none focus:border-amber-300"
+                />
+              </div>
+            </div>
+            <div class="flex justify-end">
+              <button
+                type="button"
+                id="btn-join-online-room"
+                class="px-6 py-2.5 rounded-2xl bg-emerald-800 hover:bg-emerald-700 border border-amber-300/60 text-xs sm:text-sm font-black text-amber-200 cursor-pointer transition"
+              >
+                انضمام للغرفة
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Loss Limit & Start Match -->
+      <div class="flex flex-wrap items-center justify-between gap-4 pt-3 border-t border-amber-400/20">
+        <div class="flex flex-wrap items-center gap-2">
+          <span class="text-xs sm:text-sm font-extrabold text-amber-200 ml-1">حد الخسارة:</span>
+          <button
+            type="button"
+            id="limit-250-btn"
+            class="px-4 py-2 rounded-xl border font-black text-xs sm:text-sm cursor-pointer transition"
+          >
+            ٢٥٠
+          </button>
+          <button
+            type="button"
+            id="limit-500-btn"
+            class="px-4 py-2 rounded-xl border font-black text-xs sm:text-sm cursor-pointer transition"
+          >
+            ٥٠٠
+          </button>
+          <button
+            type="button"
+            id="limit-750-btn"
+            class="px-4 py-2 rounded-xl border font-black text-xs sm:text-sm cursor-pointer transition"
+          >
+            ٧٥٠
+          </button>
+        </div>
+
+        <button
+          type="button"
+          id="btn-start-match"
+          class="gold-cta px-8 py-3 rounded-2xl text-sm sm:text-base cursor-pointer"
+        >
+          بدء اللعب
+        </button>
+      </div>
+    </section>
+
+    <!-- Landscape Game Table Screen -->
+    <section id="game-screen" class="hidden space-y-4">
+      <!-- Online Invite Link Bar -->
+      <div id="online-invite-bar" class="hidden burgundy-panel rounded-2xl px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+        <div class="space-y-0.5 min-w-0 flex-1">
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="text-xs font-black text-amber-300">رابط الدعوة التلقائي للغرفة:</span>
+            <span id="invite-room-code-text" class="px-2 py-0.5 rounded-lg bg-black/40 border border-amber-400/35 text-xs font-black text-amber-200">
+              —
+            </span>
+          </div>
+          <p id="invite-url-display" class="text-xs text-emerald-100/90 font-semibold truncate" dir="ltr">—</p>
+        </div>
+
+        <div class="flex items-center gap-2 flex-wrap">
+          <button
+            type="button"
+            id="btn-copy-invite-link"
+            class="gold-cta px-4 py-2 rounded-xl text-xs sm:text-sm cursor-pointer"
+          >
+            نسخ رابط الدعوة
+          </button>
+          <button
+            type="button"
+            id="btn-copy-room-code"
+            class="px-3.5 py-2 rounded-xl bg-black/40 hover:bg-black/55 border border-amber-400/35 text-xs sm:text-sm font-bold text-amber-200 cursor-pointer transition"
+          >
+            نسخ الرمز
+          </button>
+        </div>
+      </div>
+
+      <div id="players-strip" class="grid grid-cols-2 lg:grid-cols-4 gap-3"></div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+        <div class="lg:col-span-8 luxury-surface rounded-3xl p-4 sm:p-6 space-y-5">
+          <div class="flex flex-wrap items-center justify-between gap-2 border-b border-amber-400/20 pb-3">
+            <div class="flex items-center gap-2 flex-wrap">
+              <span id="room-code-badge" class="hidden px-3 py-1 rounded-xl bg-black/40 border border-amber-400/40 text-xs font-black text-amber-300">
+                الغرفة: —
+              </span>
+              <span id="round-badge" class="px-3 py-1 rounded-xl bg-black/35 border border-amber-400/35 text-xs font-black text-amber-200">
+                الجولة ١
+              </span>
+              <span id="turn-badge" class="px-3 py-1 rounded-xl burgundy-panel border border-amber-400/35 text-xs font-black text-amber-100">
+                الدور: -
+              </span>
+              <span id="phase-badge" class="px-3 py-1 rounded-xl bg-emerald-950/90 border border-amber-400/30 text-xs font-extrabold text-emerald-200">
+                المرحلة: الرمي
+              </span>
+            </div>
+
+            <div class="flex items-center gap-2 flex-wrap">
+              <button
+                type="button"
+                id="btn-toggle-privacy"
+                class="px-3 py-1.5 rounded-xl bg-black/40 hover:bg-black/55 border border-amber-400/35 text-xs font-bold text-amber-200 cursor-pointer transition"
+              >
+                إخفاء/إظهار البطاقات
+              </button>
+              <button
+                type="button"
+                id="btn-next-round"
+                class="hidden gold-cta px-4 py-1.5 rounded-xl text-xs sm:text-sm cursor-pointer"
+              >
+                جولة جديدة
+              </button>
+              <button
+                type="button"
+                id="btn-new-match"
+                class="px-3.5 py-1.5 rounded-xl burgundy-panel hover:brightness-110 border border-amber-400/35 text-xs sm:text-sm font-bold text-amber-200 cursor-pointer transition"
+              >
+                مباراة جديدة
+              </button>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-4 sm:gap-6 items-center justify-items-center burgundy-panel rounded-2xl p-4">
+            <div class="flex flex-col items-center gap-2 text-center">
+              <span id="left-discard-label" class="text-xs font-extrabold text-amber-200">من يسارك</span>
+              <div id="left-discard-slot" class="cursor-pointer"></div>
+              <span id="left-discard-hint" class="text-[11px] text-emerald-100/80 font-semibold">بطاقة اليسار</span>
+            </div>
+
+            <div class="flex flex-col items-center gap-2 text-center">
+              <span id="deck-count-label" class="text-xs font-extrabold text-amber-200">الرزمة المقلوبة (٠)</span>
+              <div id="draw-deck-slot" class="cursor-pointer"></div>
+              <span class="text-[11px] text-emerald-100/80 font-semibold">انقر للسحب وقت مرحلة السحب</span>
+            </div>
+          </div>
+
+          <div class="burgundy-panel rounded-2xl p-4 sm:p-5 space-y-4">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h3 id="active-hand-title" class="text-sm sm:text-base font-black text-amber-200">بطاقات اللاعب</h3>
+                <p id="active-hand-meta" class="text-xs text-amber-100/85 font-bold">مجموع اليد: ٠ (الهدف ≤ ١٢)</p>
+              </div>
+
+              <div class="flex items-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  id="btn-discard"
+                  class="inzili-btn gold-cta px-4 py-2 rounded-xl text-xs sm:text-sm cursor-pointer"
+                >
+                  رمي المحدد
+                </button>
+                <button
+                  type="button"
+                  id="btn-clear-selection"
+                  class="inzili-btn px-3 py-2 rounded-xl bg-black/40 hover:bg-black/55 border border-amber-400/30 text-xs sm:text-sm font-bold text-amber-100 cursor-pointer transition"
+                >
+                  إلغاء التحديد
+                </button>
+                <button
+                  type="button"
+                  id="btn-inzili"
+                  class="inzili-btn px-4 py-2 rounded-xl bg-emerald-800 hover:bg-emerald-700 border border-amber-300/60 text-xs sm:text-sm font-black text-amber-200 cursor-pointer transition"
+                >
+                  انزلي!
+                </button>
+              </div>
+            </div>
+
+            <div id="active-hand-container" class="flex flex-nowrap sm:flex-wrap items-center justify-start sm:justify-center gap-3 overflow-x-auto min-h-[140px] py-2 px-1"></div>
+          </div>
+        </div>
+
+        <aside class="lg:col-span-4 luxury-surface rounded-3xl p-4 sm:p-5 space-y-2.5">
+          <div class="flex items-center justify-between border-b border-amber-400/20 pb-2.5">
+            <h3 class="text-sm font-black text-amber-200">سجل اللعب</h3>
+            <span class="text-[11px] text-emerald-100/75 font-bold">آخر الأحداث</span>
+          </div>
+          <div id="log-list" class="space-y-1.5 max-h-[420px] overflow-y-auto text-xs text-emerald-100/90 leading-relaxed"></div>
+        </aside>
+      </div>
+    </section>
+  </div>
+
+  <!-- Rules Modal -->
+  <div id="rules-modal" class="fixed inset-0 z-50 bg-black/75 hidden items-center justify-center p-4">
+    <div class="luxury-surface max-w-2xl w-full rounded-3xl p-5 sm:p-6 space-y-4">
+      <div class="flex items-center justify-between border-b border-amber-400/25 pb-3">
+        <h2 class="text-lg sm:text-xl font-black text-amber-200">قواعد لعبة انزلي</h2>
+        <button
+          type="button"
+          id="btn-close-rules-x"
+          class="px-2.5 py-1 rounded-xl bg-black/40 hover:bg-black/60 border border-amber-400/30 text-amber-200 text-sm font-black cursor-pointer"
+        >
+          ✕
+        </button>
+      </div>
+
+      <ul class="space-y-2 text-xs sm:text-sm text-emerald-100/90 leading-relaxed list-disc pr-5">
+        <li><strong class="text-amber-300">الأنماط والغرف:</strong> «مع الشلة»، «مع بوت»، أو «غرفة أونلاين» مع توليد رابط دعوة تلقائي (<code>?room=CODE</code>) ونسخ سريع للرابط أو الرمز، بعدد ٢ أو ٣ أو ٤ لاعبين، ٤ بطاقات لكل لاعب في كل جولة مع دوران من يبدأ الجولة.</li>
+        <li><strong class="text-amber-300">قيم البطاقات بدون جوكر:</strong> الأرقام ٢–١٠ بقيمتها الرقمية، وJ, Q, K بقيمة ١٠ نقاط لكل منها، بدون جوكر.</li>
+        <li><strong class="text-amber-300">الرمي واليسار والسحب:</strong> يمكنك رمي بطاقة واحدة أو عدة بطاقات متشابهة (بالرقم أو بالشكل)، بما في ذلك البطاقات المسحوبة من اليسار دون منع.</li>
+        <li><strong class="text-amber-300">إعلان «انزلي!» قبل الرمي فقط:</strong> يُسمح بإعلان «انزلي!» حصراً عند حلول دور اللاعب وقبل رمي أي بطاقة في هذا الدور إذا كان مجموع يده ١٢ أو أقل (بدون رمي). بعد الرمي في نفس الدور يُمنع الإعلان حتى يأتي الدور التالي. إذا لم يكن المعلن صاحب أقل مجموع يُطبّق التدبيل التلقائي.</li>
+        <li><strong class="text-amber-300">إخفاء/إظهار البطاقات ومجموع اليد:</strong> زر إخفاء/إظهار البطاقات يُخفي أو يُظهر البطاقات ومجموع اليد معاً (<code>مجموع اليد: مخفي</code> عند الإخفاء).</li>
+        <li><strong class="text-amber-300">حد الخسارة:</strong> من يصل إلى الحد المختار (٢٥٠، ٥٠٠، أو ٧٥٠ نقطة) يخسر المباراة، وتُقفل الإعدادات أثناء المباراة الجارية حتى الوصول لحد الخسارة.</li>
+      </ul>
+
+      <div class="flex justify-end pt-2">
+        <button
+          type="button"
+          id="btn-close-rules-ok"
+          class="gold-cta px-5 py-2 rounded-xl text-xs sm:text-sm cursor-pointer"
+        >
+          حسناً
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /**
+     * Safe execution guard for event handlers, network messages, and rendering.
+     */
+    function safeCall(fn, fallback = undefined) {
+      try {
+        return fn();
+      } catch (err) {
+        console.error('Inzili prototype error:', err);
+        setStatusMessage('حدث تنبيه وتم الإبقاء على حالة اللعبة مستقرة.');
+        return fallback;
+      }
+    }
+
+    const SUITS = [
+      { key: 'SPADES', symbol: '♠', name: 'سبيت', isRed: false },
+      { key: 'DIAMONDS', symbol: '♦', name: 'دايموند', isRed: true },
+      { key: 'CLUBS', symbol: '♣', name: 'كلفس', isRed: false },
+      { key: 'HEARTS', symbol: '♥', name: 'هاس', isRed: true }
+    ];
+
+    // Standard 52-card deck: 2-10 face value, J/Q/K = 10, no Jokers
+    const RANKS = [
+      { code: '2', label: '2', points: 2 },
+      { code: '3', label: '3', points: 3 },
+      { code: '4', label: '4', points: 4 },
+      { code: '5', label: '5', points: 5 },
+      { code: '6', label: '6', points: 6 },
+      { code: '7', label: '7', points: 7 },
+      { code: '8', label: '8', points: 8 },
+      { code: '9', label: '9', points: 9 },
+      { code: '10', label: '10', points: 10 },
+      { code: 'J', label: 'J', points: 10 },
+      { code: 'Q', label: 'Q', points: 10 },
+      { code: 'K', label: 'K', points: 10 }
+    ];
+
+    const DEFAULT_SHILLA_NAMES = ['لاعب ١', 'لاعب ٢', 'لاعب ٣', 'لاعب ٤'];
+    const DEFAULT_BOT_NAMES = ['أنت', 'سالم', 'مها', 'طارق'];
+    const clientId = 'client_' + Math.random().toString(36).slice(2, 9);
+
+    const net = {
+      transport: 'BROADCAST', // 'BROADCAST' | 'SUPABASE'
+      channel: null,
+      supabaseClient: null
+    };
+
+    const state = {
+      screen: 'SETUP',
+      setupMode: 'SHILLA', // 'SHILLA' | 'BOT' | 'ONLINE'
+      setupCount: 4,
+      setupNames: [...DEFAULT_SHILLA_NAMES],
+      setupLossLimit: 250,
+      invitedRoomCode: '',
+
+      matchActive: false,
+      matchFinished: false,
+      loserId: null,
+      lossLimit: 250,
+      mode: 'SHILLA', // 'SHILLA' | 'BOT' | 'ONLINE'
+      isOnline: false,
+      roomCode: '',
+      hostId: null,
+      localPlayerId: clientId,
+
+      roundNumber: 1,
+      roundStarterIndex: 0,
+      currentPlayerIndex: 0,
+      turnPhase: 'DISCARD', // 'DISCARD' | 'DRAW' | 'ROUND_END'
+      hasDiscardedThisTurn: false,
+      roundEnded: false,
+      privacyHidden: false,
+
+      players: [],
+      drawPile: [],
+      selectedCardIds: [],
+      logs: [],
+      statusMessage: 'اختر نمط اللعب أو أنشئ/انضم إلى غرفة أونلاين للبدء.',
+      botTimerId: null
+    };
+
+    function clearBotTimer() {
+      if (state.botTimerId !== null) {
+        clearTimeout(state.botTimerId);
+        state.botTimerId = null;
+      }
+    }
+
+    function formatArabicNumber(num) {
+      return (Number(num) || 0).toLocaleString('ar-EG');
+    }
+
+    function setStatusMessage(msg) {
+      state.statusMessage = msg;
+      const el = document.getElementById('status-text');
+      if (el) el.textContent = msg;
+    }
+
+    function addLog(entry) {
+      state.logs.unshift(entry);
+      if (state.logs.length > 35) state.logs.length = 35;
+    }
+
+    function getDefaultName(index, mode) {
+      if (mode === 'BOT') return DEFAULT_BOT_NAMES[index] || `بوت ${index + 1}`;
+      return DEFAULT_SHILLA_NAMES[index] || `لاعب ${index + 1}`;
+    }
+
+    function isSetupLocked() {
+      return state.matchActive && !state.matchFinished;
+    }
+
+    /**
+     * Generates a shareable room invite link with ?room=CODE and updates the address bar cleanly.
+     */
+    function buildInviteLink(code) {
+      const normalized = String(code || '').trim().toUpperCase();
+      if (!normalized) return '';
+      try {
+        const url = new URL(window.location.href);
+        url.searchParams.set('room', normalized);
+        return url.toString();
+      } catch (_) {
+        const base = `${window.location.origin || ''}${window.location.pathname || ''}`;
+        return `${base}?room=${encodeURIComponent(normalized)}`;
+      }
+    }
+
+    function syncBrowserRoomQueryParam(code) {
+      if (!window.history || typeof window.history.replaceState !== 'function') return;
+      try {
+        const url = new URL(window.location.href);
+        if (code) {
+          url.searchParams.set('room', String(code).trim().toUpperCase());
+        } else {
+          url.searchParams.delete('room');
+        }
+        window.history.replaceState({}, '', url.toString());
+      } catch (_) {}
+    }
+
+    function copyTextFallback(text, successMsg) {
+      const val = String(text || '');
+      if (!val) return;
+      if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+        navigator.clipboard.writeText(val).then(
+          () => setStatusMessage(successMsg),
+          () => execCopyCommand(val, successMsg)
+        );
+      } else {
+        execCopyCommand(val, successMsg);
+      }
+    }
+
+    function execCopyCommand(val, successMsg) {
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = val;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        setStatusMessage(successMsg);
+      } catch (_) {
+        setStatusMessage(`تعذر النسخ التلقائي؛ يمكنك نسخ النص يدوياً: ${val}`);
+      }
+    }
+
+    function copyInviteLink() {
+      if (!state.isOnline || !state.roomCode) return;
+      const link = buildInviteLink(state.roomCode);
+      copyTextFallback(link, `تم نسخ رابط الدعوة للغرفة ${state.roomCode}.`);
+    }
+
+    function copyRoomCodeOnly() {
+      if (!state.isOnline || !state.roomCode) return;
+      copyTextFallback(state.roomCode, `تم نسخ رمز الغرفة: ${state.roomCode}`);
+    }
+
+    function detectInvitedRoomFromUrl() {
+      try {
+        const params = new URLSearchParams(window.location.search || '');
+        const rawRoom = (params.get('room') || '').trim().toUpperCase();
+        if (!rawRoom) return '';
+        state.invitedRoomCode = rawRoom;
+        state.setupMode = 'ONLINE';
+        const joinCodeInput = document.getElementById('online-join-code');
+        if (joinCodeInput) joinCodeInput.value = rawRoom;
+        setStatusMessage(`تم تحميل رمز الغرفة (${rawRoom}) من رابط الدعوة؛ اكتب اسمك ثم اضغط «انضمام للغرفة».`);
+        return rawRoom;
+      } catch (_) {
+        return '';
+      }
+    }
+
+    function createShuffledDeck() {
+      const deck = [];
+      let counter = 1;
+      for (const suit of SUITS) {
+        for (const rank of RANKS) {
+          deck.push({
+            id: `card_${counter++}_${suit.key}_${rank.code}_${Math.random().toString(36).slice(2, 5)}`,
+            suitKey: suit.key,
+            suitSymbol: suit.symbol,
+            suitName: suit.name,
+            isRed: suit.isRed,
+            rankCode: rank.code,
+            rankLabel: rank.label,
+            points: rank.points
+          });
+        }
+      }
+      for (let i = deck.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [deck[i], deck[j]] = [deck[j], deck[i]];
+      }
+      return deck;
+    }
+
+    function calculateHandSum(hand) {
+      if (!Array.isArray(hand)) return 0;
+      return hand.reduce((acc, card) => acc + (Number(card.points) || 0), 0);
+    }
+
+    function describeCards(cards) {
+      return cards.map((c) => `${c.rankLabel}${c.suitSymbol}`).join(' ، ');
+    }
+
+    // Allows single card or multiple cards sharing the same rank OR same suit
+    function areCardsValidDiscardGroup(cards) {
+      if (!Array.isArray(cards) || cards.length === 0) return false;
+      if (cards.length === 1) return true;
+      const sameRank = cards.every((c) => c.rankCode === cards[0].rankCode);
+      const sameSuit = cards.every((c) => c.suitKey === cards[0].suitKey);
+      return sameRank || sameSuit;
+    }
+
+    function getPreviousPlayerIndex(playerIndex, count = state.players.length) {
+      return (playerIndex - 1 + count) % count;
+    }
+
+    function getNextPlayerIndex(playerIndex, count = state.players.length) {
+      return (playerIndex + 1) % count;
+    }
+
+    function getViewedPlayerIndex() {
+      if (state.isOnline) {
+        const idx = state.players.findIndex((p) => p.id === state.localPlayerId);
+        return idx >= 0 ? idx : 0;
+      }
+      return state.currentPlayerIndex;
+    }
+
+    function shouldHideHandAndSum(player) {
+      if (!player) return false;
+      if (state.roundEnded) return false;
+      if (state.privacyHidden) return true;
+      if (state.mode === 'BOT' && player.isBot) return true;
+      return false;
+    }
+
+    // "انزلي!" is strictly allowed at the start of a player's turn BEFORE discarding in that turn
+    function canDeclareInziliForPlayer(playerIndex) {
+      const player = state.players[playerIndex];
+      if (!player || player.isBot) return false;
+      if (!state.matchActive || state.roundEnded || state.matchFinished) return false;
+      if (state.currentPlayerIndex !== playerIndex) return false;
+      if (state.turnPhase !== 'DISCARD' || state.hasDiscardedThisTurn) return false;
+      if (shouldHideHandAndSum(player)) return false;
+      return calculateHandSum(player.hand) <= 12;
+    }
+
+    /* Online Transport Layer (Supabase Realtime + BroadcastChannel Fallback) */
+    function serializeRoomSnapshot() {
+      return {
+        roomCode: state.roomCode,
+        hostId: state.hostId,
+        lossLimit: state.lossLimit,
+        setupCount: state.setupCount,
+        matchActive: state.matchActive,
+        matchFinished: state.matchFinished,
+        loserId: state.loserId,
+        roundNumber: state.roundNumber,
+        roundStarterIndex: state.roundStarterIndex,
+        currentPlayerIndex: state.currentPlayerIndex,
+        turnPhase: state.turnPhase,
+        hasDiscardedThisTurn: state.hasDiscardedThisTurn,
+        roundEnded: state.roundEnded,
+        players: state.players,
+        drawPile: state.drawPile,
+        logs: state.logs
+      };
+    }
+
+    function applyRoomSnapshot(snap) {
+      if (!snap || snap.roomCode !== state.roomCode) return;
+      state.hostId = snap.hostId;
+      state.lossLimit = snap.lossLimit || state.lossLimit;
+      state.setupCount = snap.setupCount || state.setupCount;
+      state.matchActive = Boolean(snap.matchActive);
+      state.matchFinished = Boolean(snap.matchFinished);
+      state.loserId = snap.loserId ?? null;
+      state.roundNumber = snap.roundNumber || 1;
+      state.roundStarterIndex = snap.roundStarterIndex || 0;
+      state.currentPlayerIndex = snap.currentPlayerIndex || 0;
+      state.turnPhase = snap.turnPhase || 'DISCARD';
+      state.hasDiscardedThisTurn = Boolean(snap.hasDiscardedThisTurn);
+      state.roundEnded = Boolean(snap.roundEnded);
+      state.players = Array.isArray(snap.players) ? snap.players : [];
+      state.drawPile = Array.isArray(snap.drawPile) ? snap.drawPile : [];
+      state.logs = Array.isArray(snap.logs) ? snap.logs : [];
+
+      const me = state.players.find((p) => p.id === state.localPlayerId);
+      const myIds = new Set((me ? me.hand : []).map((c) => c.id));
+      state.selectedCardIds = state.selectedCardIds.filter((id) => myIds.has(id));
+
+      renderAll();
+    }
+
+    function broadcastSnapshotIfHost() {
+      if (!state.isOnline || state.hostId !== state.localPlayerId) return;
+      sendRoomMessage('ROOM_STATE', { snapshot: serializeRoomSnapshot() });
+    }
+
+    function sendRoomMessage(type, payload = {}) {
+      if (!state.isOnline || !net.channel || !state.roomCode) return;
+      const packet = {
+        type,
+        senderId: state.localPlayerId,
+        roomCode: state.roomCode,
+        payload
+      };
+      if (net.transport === 'BROADCAST') {
+        net.channel.postMessage(packet);
+      } else if (net.transport === 'SUPABASE') {
+        net.channel.send({
+          type: 'broadcast',
+          event: 'inzili_event',
+          payload: packet
+        });
+      }
+    }
+
+    async function connectRoomTransport(code) {
+      if (net.channel) {
+        try {
+          if (net.transport === 'BROADCAST') net.channel.close();
+          else if (net.transport === 'SUPABASE' && net.supabaseClient) {
+            await net.supabaseClient.removeChannel(net.channel);
+          }
+        } catch (_) {}
+        net.channel = null;
+      }
+
+      const url = (document.getElementById('supabase-url-input')?.value || '').trim();
+      const key = (document.getElementById('supabase-key-input')?.value || '').trim();
+      const badge = document.getElementById('transport-badge');
+
+      if (url && key && window.supabase && typeof window.supabase.createClient === 'function') {
+        net.transport = 'SUPABASE';
+        net.supabaseClient = window.supabase.createClient(url, key);
+        const ch = net.supabaseClient.channel(`inzili_${code}`, {
+          config: { broadcast: { self: false } }
+        });
+        ch.on('broadcast', { event: 'inzili_event' }, ({ payload }) => {
+          safeCall(() => handleIncomingRoomMessage(payload));
+        });
+        await ch.subscribe((status) => {
+          if (badge) {
+            badge.textContent = status === 'SUBSCRIBED' ? `أونلاين (Supabase): ${code}` : `أونلاين (${status})`;
+          }
+        });
+        net.channel = ch;
+      } else {
+        net.transport = 'BROADCAST';
+        const ch = new BroadcastChannel(`inzili_${code}`);
+        ch.onmessage = (event) => {
+          safeCall(() => handleIncomingRoomMessage(event.data));
+        };
+        net.channel = ch;
+        if (badge) {
+          badge.textContent = `أونلاين (محلي/تبويبات): ${code}`;
+        }
+      }
+    }
+
+    function handleIncomingRoomMessage(msg) {
+      if (!msg || !state.isOnline || msg.roomCode !== state.roomCode || msg.senderId === state.localPlayerId) return;
+
+      if (msg.type === 'ROOM_STATE' && msg.payload && msg.payload.snapshot) {
+        applyRoomSnapshot(msg.payload.snapshot);
+        return;
+      }
+
+      if (state.hostId === state.localPlayerId) {
+        if (msg.type === 'JOIN_ROOM') {
+          const { playerId, name } = msg.payload || {};
+          if (playerId && !state.players.some((p) => p.id === playerId) && state.players.length < state.setupCount) {
+            state.players.push({
+              id: playerId,
+              name: name || `لاعب ${state.players.length + 1}`,
+              isBot: false,
+              score: 0,
+              hand: [],
+              leftDiscard: null,
+              leftSourceLabel: null
+            });
+            addLog(`انضم ${name || 'لاعب'} إلى الغرفة ${state.roomCode}.`);
+            broadcastSnapshotIfHost();
+            renderAll();
+          }
+        } else if (msg.type === 'START_ROUND_CMD') {
+          startOrAdvanceRoundAuthoritative();
+        } else if (msg.type === 'DISCARD_CMD') {
+          performDiscard(msg.payload.playerIndex, msg.payload.cardIds);
+          renderAll();
+        } else if (msg.type === 'DRAW_CMD') {
+          performDraw(msg.payload.playerIndex, msg.payload.source);
+          renderAll();
+        } else if (msg.type === 'INZILI_CMD') {
+          executeInzili(msg.payload.playerIndex);
+          renderAll();
+        }
+      }
+    }
+
+    async function createOnlineRoom() {
+      const hostName = (document.getElementById('online-host-name')?.value || '').trim() || 'لاعب ١';
+      const code = `INZ-${Math.floor(100 + Math.random() * 900)}`;
+
+      clearBotTimer();
+      state.isOnline = true;
+      state.mode = 'ONLINE';
+      state.roomCode = code;
+      state.hostId = state.localPlayerId;
+      state.lossLimit = state.setupLossLimit;
+      state.matchActive = false;
+      state.matchFinished = false;
+      state.loserId = null;
+      state.roundNumber = 1;
+      state.roundStarterIndex = 0;
+      state.currentPlayerIndex = 0;
+      state.turnPhase = 'DISCARD';
+      state.hasDiscardedThisTurn = false;
+      state.roundEnded = false;
+      state.privacyHidden = false;
+      state.selectedCardIds = [];
+      state.drawPile = [];
+      state.logs = [];
+      state.players = [
+        {
+          id: state.localPlayerId,
+          name: hostName,
+          isBot: false,
+          score: 0,
+          hand: [],
+          leftDiscard: null,
+          leftSourceLabel: null
+        }
+      ];
+
+      syncBrowserRoomQueryParam(code);
+      const inviteUrl = buildInviteLink(code);
+      addLog(`تم إنشاء الغرفة ${code} بواسطة ${hostName} وتوليد رابط الدعوة تلقائياً.`);
+      await connectRoomTransport(code);
+      broadcastSnapshotIfHost();
+      switchScreen('GAME');
+      setStatusMessage(`تم إنشاء الغرفة ${code}. يمكنك نسخ رابط الدعوة (${inviteUrl}) ومشاركته مع اللاعبين.`);
+    }
+
+    async function joinOnlineRoom() {
+      const playerName = (document.getElementById('online-join-name')?.value || '').trim() || 'لاعب ٢';
+      const code = (document.getElementById('online-join-code')?.value || '').trim().toUpperCase();
+      if (!code) {
+        setStatusMessage('أدخل رمز الغرفة أولاً للانضمام.');
+        return;
+      }
+
+      clearBotTimer();
+      state.isOnline = true;
+      state.mode = 'ONLINE';
+      state.roomCode = code;
+      state.hostId = null;
+      state.matchActive = false;
+      state.matchFinished = false;
+      state.loserId = null;
+      state.privacyHidden = false;
+      state.selectedCardIds = [];
+      state.logs = [`بانتظار مزامنة حالة الغرفة ${code}...`];
+      state.players = [
+        {
+          id: state.localPlayerId,
+          name: playerName,
+          isBot: false,
+          score: 0,
+          hand: [],
+          leftDiscard: null,
+          leftSourceLabel: null
+        }
+      ];
+
+      syncBrowserRoomQueryParam(code);
+      await connectRoomTransport(code);
+      sendRoomMessage('JOIN_ROOM', { playerId: state.localPlayerId, name: playerName });
+      switchScreen('GAME');
+      setStatusMessage(`تم إرسال طلب الانضمام إلى الغرفة ${code}...`);
+    }
+
+    /* Setup Actions */
+    function setSetupMode(mode) {
+      if (isSetupLocked()) {
+        setStatusMessage('الإعدادات مقفلة أثناء المباراة الجارية حتى الوصول لحد الخسارة.');
+        return;
+      }
+      if (!['SHILLA', 'BOT', 'ONLINE'].includes(mode)) return;
+      state.setupMode = mode;
+
+      if (mode !== 'ONLINE') {
+        for (let i = 0; i < 4; i++) {
+          const input = document.getElementById(`player-name-input-${i}`);
+          const currentVal = input ? input.value.trim() : '';
+          const wasDefault =
+            DEFAULT_SHILLA_NAMES.includes(currentVal) ||
+            DEFAULT_BOT_NAMES.includes(currentVal) ||
+            currentVal === '';
+          if (wasDefault) {
+            const nextDefault = getDefaultName(i, mode);
+            state.setupNames[i] = nextDefault;
+            if (input) input.value = nextDefault;
+          }
+        }
+      }
+
+      const labelMap = {
+        SHILLA: 'اللعب مع الشلة',
+        BOT: 'اللعب مع بوت',
+        ONLINE: 'غرفة أونلاين'
+      };
+      setStatusMessage(`تم اختيار نمط: ${labelMap[mode]}.`);
+      renderSetupScreen();
+    }
+
+    function setSetupPlayerCount(count) {
+      if (isSetupLocked()) {
+        setStatusMessage('عدد اللاعبين مقفل أثناء المباراة الجارية حتى الوصول لحد الخسارة.');
+        return;
+      }
+      if (![2, 3, 4].includes(count)) return;
+      state.setupCount = count;
+      setStatusMessage(`تم تحديد عدد اللاعبين: ${formatArabicNumber(count)}.`);
+      renderSetupScreen();
+    }
+
+    function setSetupLossLimit(limit) {
+      if (isSetupLocked()) {
+        setStatusMessage('حد الخسارة مقفل أثناء المباراة الجارية حتى الوصول لحد الخسارة.');
+        return;
+      }
+      if (![250, 500, 750].includes(limit)) return;
+      state.setupLossLimit = limit;
+      setStatusMessage(`تم تحديد حد الخسارة: ${formatArabicNumber(limit)} نقطة.`);
+      renderSetupScreen();
+    }
+
+    function syncNamesFromInputs() {
+      for (let i = 0; i < 4; i++) {
+        const input = document.getElementById(`player-name-input-${i}`);
+        const raw = input ? input.value.trim() : '';
+        state.setupNames[i] = raw || getDefaultName(i, state.setupMode);
+      }
+    }
+
+    function openRulesModal() {
+      const modal = document.getElementById('rules-modal');
+      if (modal) {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+      }
+    }
+
+    function closeRulesModal() {
+      const modal = document.getElementById('rules-modal');
+      if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+      }
+    }
+
+    function switchScreen(targetScreen) {
+      state.screen = targetScreen;
+      const setupSec = document.getElementById('setup-screen');
+      const gameSec = document.getElementById('game-screen');
+      const backBtn = document.getElementById('btn-back-setup');
+      const subtitle = document.getElementById('header-subtitle');
+
+      if (targetScreen === 'SETUP') {
+        clearBotTimer();
+        if (setupSec) setupSec.classList.remove('hidden');
+        if (gameSec) gameSec.classList.add('hidden');
+        if (backBtn) backBtn.classList.toggle('hidden', !state.matchActive && !state.isOnline);
+        if (subtitle) subtitle.textContent = 'شاشة ما قبل اللعب والغرف';
+        renderSetupScreen();
+      } else {
+        if (setupSec) setupSec.classList.add('hidden');
+        if (gameSec) gameSec.classList.remove('hidden');
+        if (backBtn) backBtn.classList.remove('hidden');
+        if (subtitle) {
+          subtitle.textContent = state.isOnline
+            ? `غرفة أونلاين (${state.roomCode})`
+            : state.mode === 'SHILLA'
+            ? 'اللعب مع الشلة'
+            : 'اللعب مع بوت';
+        }
+        renderAll();
+        scheduleBotIfNeeded();
+      }
+    }
+
+    function handleSetupButtonClick() {
+      if (isSetupLocked()) {
+        setStatusMessage('الأسماء والإعدادات مقفلة أثناء المباراة الجارية حتى الوصول لحد الخسارة.');
+        return;
+      }
+      switchScreen('SETUP');
+    }
+
+    /* Round & Match Core Logic */
+    function ensureInitialLeftCardsForRound(starterIdx) {
+      const count = state.players.length;
+      if (count === 0) return;
+
+      const starter = state.players[starterIdx];
+      if (starter && !starter.leftDiscard && state.drawPile.length > 0) {
+        starter.leftDiscard = state.drawPile.pop();
+        starter.leftSourceLabel = 'من اللعبة';
+      }
+
+      for (let step = 1; step < count; step++) {
+        const idx = (starterIdx + step) % count;
+        const prevIdx = getPreviousPlayerIndex(idx, count);
+        const player = state.players[idx];
+        const prevPlayer = state.players[prevIdx];
+        if (!player) continue;
+
+        if (prevPlayer && prevPlayer.leftDiscard) {
+          player.leftDiscard = prevPlayer.leftDiscard;
+          player.leftSourceLabel = `من ${prevPlayer.name}`;
+        } else if (!player.leftDiscard && state.drawPile.length > 0) {
+          player.leftDiscard = state.drawPile.pop();
+          player.leftSourceLabel = 'من اللعبة';
+        }
+      }
+    }
+
+    function dealRound(roundNum, starterIdx) {
+      const deck = createShuffledDeck();
+      const count = state.players.length;
+      state.matchActive = true;
+      state.roundNumber = roundNum;
+      state.roundStarterIndex = starterIdx % count;
+      state.currentPlayerIndex = state.roundStarterIndex;
+      state.turnPhase = 'DISCARD';
+      state.hasDiscardedThisTurn = false;
+      state.roundEnded = false;
+      state.selectedCardIds = [];
+      state.privacyHidden = state.mode === 'SHILLA';
+
+      for (let i = 0; i < count; i++) {
+        const p = state.players[i];
+        p.hand = [];
+        p.leftDiscard = null;
+        p.leftSourceLabel = null;
+        for (let c = 0; c < 4; c++) {
+          if (deck.length > 0) p.hand.push(deck.pop());
+        }
+      }
+
+      state.drawPile = deck;
+      ensureInitialLeftCardsForRound(state.roundStarterIndex);
+
+      const starter = state.players[state.roundStarterIndex];
+      addLog(`بدأت الجولة ${formatArabicNumber(roundNum)} — يبدأها ${starter ? starter.name : '-'}.`);
+    }
+
+    function startMatchFromSetup() {
+      if (state.setupMode === 'ONLINE') {
+        setStatusMessage('في نمط الغرفة الأونلاين، اضغط «إنشاء غرفة ورابط دعوة» أو «انضمام للغرفة».');
+        return;
+      }
+      if (isSetupLocked()) {
+        setStatusMessage('لا يمكن بدء مباراة جديدة بتعديل الإعدادات قبل انتهاء المباراة الحالية.');
+        return;
+      }
+
+      syncNamesFromInputs();
+      clearBotTimer();
+
+      state.isOnline = false;
+      state.roomCode = '';
+      state.hostId = null;
+      syncBrowserRoomQueryParam('');
+      state.mode = state.setupMode;
+      state.lossLimit = state.setupLossLimit;
+      state.matchActive = true;
+      state.matchFinished = false;
+      state.loserId = null;
+      state.logs = [];
+
+      const count = [2, 3, 4].includes(state.setupCount) ? state.setupCount : 4;
+      const players = [];
+      for (let i = 0; i < count; i++) {
+        players.push({
+          id: `local_p_${i}`,
+          name: state.setupNames[i] || getDefaultName(i, state.setupMode),
+          isBot: state.setupMode === 'BOT' && i > 0,
+          score: 0,
+          hand: [],
+          leftDiscard: null,
+          leftSourceLabel: null
+        });
+      }
+
+      state.players = players;
+      dealRound(1, 0);
+      addLog(`بدأت المباراة (${state.mode === 'SHILLA' ? 'مع الشلة' : 'مع بوت'}) بعدد ${formatArabicNumber(count)} وحد خسارة ${formatArabicNumber(state.lossLimit)}.`);
+      switchScreen('GAME');
+      setStatusMessage(`بدأت الجولة ١ — الدور عند ${state.players[state.currentPlayerIndex].name} (مرحلة الرمي).`);
+    }
+
+    function startOrAdvanceRoundAuthoritative() {
+      if (state.isOnline && state.hostId !== state.localPlayerId) {
+        sendRoomMessage('START_ROUND_CMD', {});
+        setStatusMessage('تم إرسال طلب بدء / جولة جديدة إلى منشئ الغرفة.');
+        return;
+      }
+
+      if (!state.players || state.players.length < 2) {
+        setStatusMessage('يلزم وجود لاعبين على الأقل لبدء الجولة.');
+        return;
+      }
+
+      clearBotTimer();
+      if (!state.matchActive || state.matchFinished) {
+        for (const p of state.players) {
+          p.score = 0;
+          p.hand = [];
+          p.leftDiscard = null;
+          p.leftSourceLabel = null;
+        }
+        state.matchActive = true;
+        state.matchFinished = false;
+        state.loserId = null;
+        dealRound(1, 0);
+      } else if (state.roundEnded) {
+        const nextStarter = getNextPlayerIndex(state.roundStarterIndex);
+        dealRound(state.roundNumber + 1, nextStarter);
+      }
+
+      broadcastSnapshotIfHost();
+      renderAll();
+      setStatusMessage(`بدأت الجولة ${formatArabicNumber(state.roundNumber)} — الدور عند ${state.players[state.currentPlayerIndex].name}.`);
+      scheduleBotIfNeeded();
+    }
+
+    function resetMatchSamePlayers() {
+      if (!state.players.length) {
+        switchScreen('SETUP');
+        return;
+      }
+      if (state.isOnline && state.hostId !== state.localPlayerId) {
+        setStatusMessage('فقط منشئ الغرفة يمكنه إعادة ضبط المباراة.');
+        return;
+      }
+      clearBotTimer();
+      for (const p of state.players) {
+        p.score = 0;
+        p.hand = [];
+        p.leftDiscard = null;
+        p.leftSourceLabel = null;
+      }
+      state.matchActive = true;
+      state.matchFinished = false;
+      state.loserId = null;
+      state.logs = [];
+      dealRound(1, 0);
+      addLog('تمت إعادة ضبط المباراة من الجولة ١.');
+      broadcastSnapshotIfHost();
+      renderAll();
+      setStatusMessage(`بدأت مباراة جديدة — الدور عند ${state.players[state.currentPlayerIndex].name}.`);
+      scheduleBotIfNeeded();
+    }
+
+    function togglePrivacyMask() {
+      state.privacyHidden = !state.privacyHidden;
+      renderAll();
+    }
+
+    function toggleSelectCard(cardId) {
+      if (!state.matchActive || state.roundEnded || state.matchFinished) return;
+      const viewerIdx = getViewedPlayerIndex();
+      const viewer = state.players[viewerIdx];
+      if (!viewer || viewer.isBot) return;
+      if (state.currentPlayerIndex !== viewerIdx) {
+        setStatusMessage(`ليس دورك الآن — الدور الحالي عند ${state.players[state.currentPlayerIndex]?.name || 'لاعب آخر'}.`);
+        return;
+      }
+      if (shouldHideHandAndSum(viewer)) {
+        setStatusMessage('أظهر البطاقات أولاً لاختيار ما تريد رميه.');
+        return;
+      }
+      if (state.turnPhase !== 'DISCARD') {
+        setStatusMessage('أنت الآن في مرحلة السحب: اسحب من يسارك أو من الرزمة المقلوبة.');
+        return;
+      }
+
+      const pos = state.selectedCardIds.indexOf(cardId);
+      if (pos >= 0) state.selectedCardIds.splice(pos, 1);
+      else state.selectedCardIds.push(cardId);
+
+      renderActiveHand();
+      renderActionButtons();
+    }
+
+    function clearSelection() {
+      state.selectedCardIds = [];
+      renderActiveHand();
+      renderActionButtons();
+    }
+
+    function performDiscard(playerIndex, cardIds) {
+      const player = state.players[playerIndex];
+      if (!player || !state.matchActive || state.roundEnded || state.matchFinished) return false;
+      if (state.currentPlayerIndex !== playerIndex || state.turnPhase !== 'DISCARD') return false;
+
+      if (!Array.isArray(cardIds) || cardIds.length === 0) {
+        setStatusMessage('اختر بطاقة واحدة أو أكثر متشابهة للرمي.');
+        return false;
+      }
+
+      const cardsToDiscard = player.hand.filter((c) => cardIds.includes(c.id));
+      if (cardsToDiscard.length !== cardIds.length || !areCardsValidDiscardGroup(cardsToDiscard)) {
+        setStatusMessage('يجب أن تكون البطاقات المرمية متشابهة في الرقم أو في الشكل.');
+        return false;
+      }
+
+      const discardSet = new Set(cardIds);
+      player.hand = player.hand.filter((c) => !discardSet.has(c.id));
+
+      const topDiscarded = cardsToDiscard[cardsToDiscard.length - 1];
+      const nextPlayer = state.players[getNextPlayerIndex(playerIndex)];
+      if (nextPlayer) {
+        nextPlayer.leftDiscard = topDiscarded;
+        nextPlayer.leftSourceLabel = `من ${player.name}`;
+      }
+
+      if (player.id === state.localPlayerId) {
+        state.selectedCardIds = [];
+      }
+      state.hasDiscardedThisTurn = true;
+      state.turnPhase = 'DRAW';
+
+      addLog(`${player.name} رمى (${describeCards(cardsToDiscard)}).`);
+      broadcastSnapshotIfHost();
+      return true;
+    }
+
+    function discardSelectedCards() {
+      const viewerIdx = getViewedPlayerIndex();
+      const viewer = state.players[viewerIdx];
+      if (!viewer || viewer.isBot || state.currentPlayerIndex !== viewerIdx) return;
+      if (shouldHideHandAndSum(viewer)) {
+        setStatusMessage('أظهر البطاقات أولاً.');
+        return;
+      }
+
+      const ids = [...state.selectedCardIds];
+      if (state.isOnline && state.hostId !== state.localPlayerId) {
+        const cards = viewer.hand.filter((c) => ids.includes(c.id));
+        if (!areCardsValidDiscardGroup(cards)) {
+          setStatusMessage('يجب أن تكون البطاقات المرمية متشابهة في الرقم أو في الشكل.');
+          return;
+        }
+        state.selectedCardIds = [];
+        sendRoomMessage('DISCARD_CMD', { playerIndex: viewerIdx, cardIds: ids });
+        renderAll();
+        return;
+      }
+
+      if (performDiscard(viewerIdx, ids)) {
+        renderAll();
+        setStatusMessage(`${viewer.name} رمى بطاقاته — الآن اسحب بطاقة (ولا يمكن إعلان «انزلي!» بعد الرمي في هذا الدور).`);
+        scheduleBotIfNeeded();
+      }
+    }
+
+    function performDraw(playerIndex, source) {
+      const player = state.players[playerIndex];
+      if (!player || !state.matchActive || state.roundEnded || state.matchFinished) return false;
+      if (state.currentPlayerIndex !== playerIndex || state.turnPhase !== 'DRAW') return false;
+
+      let drawnCard = null;
+      let fromLeft = false;
+
+      if (source === 'LEFT') {
+        if (!player.leftDiscard) {
+          setStatusMessage('لا توجد بطاقة متاحة على يسارك حالياً.');
+          return false;
+        }
+        drawnCard = player.leftDiscard;
+        player.leftDiscard = null;
+        player.leftSourceLabel = null;
+        fromLeft = true;
+      } else {
+        if (state.drawPile.length === 0) {
+          const fresh = createShuffledDeck();
+          const usedIds = new Set();
+          for (const p of state.players) {
+            for (const c of p.hand) usedIds.add(c.id);
+            if (p.leftDiscard) usedIds.add(p.leftDiscard.id);
+          }
+          state.drawPile = fresh.filter((c) => !usedIds.has(c.id));
+          if (state.drawPile.length === 0) state.drawPile = fresh;
+        }
+        drawnCard = state.drawPile.pop();
+      }
+
+      if (!drawnCard) return false;
+      // Drawn card from left or deck enters hand normally and can be discarded later without restriction
+      player.hand.push(drawnCard);
+      addLog(`${player.name} سحب بطاقة ${fromLeft ? `من يساره (${drawnCard.rankLabel}${drawnCard.suitSymbol})` : 'من الرزمة المقلوبة'}.`);
+
+      state.currentPlayerIndex = getNextPlayerIndex(playerIndex);
+      state.turnPhase = 'DISCARD';
+      state.hasDiscardedThisTurn = false;
+      if (player.id === state.localPlayerId) {
+        state.selectedCardIds = [];
+      }
+      if (state.mode === 'SHILLA') {
+        state.privacyHidden = true;
+      }
+
+      broadcastSnapshotIfHost();
+      return true;
+    }
+
+    function drawAction(source) {
+      const viewerIdx = getViewedPlayerIndex();
+      const viewer = state.players[viewerIdx];
+      if (!viewer || viewer.isBot || state.currentPlayerIndex !== viewerIdx) return;
+      if (shouldHideHandAndSum(viewer)) {
+        setStatusMessage('أظهر البطاقات أولاً.');
+        return;
+      }
+      if (state.turnPhase !== 'DRAW') {
+        setStatusMessage('السحب يكون بعد رمي البطاقات في دورك.');
+        return;
+      }
+
+      if (state.isOnline && state.hostId !== state.localPlayerId) {
+        sendRoomMessage('DRAW_CMD', { playerIndex: viewerIdx, source });
+        return;
+      }
+
+      if (performDraw(viewerIdx, source)) {
+        const nextP = state.players[state.currentPlayerIndex];
+        renderAll();
+        setStatusMessage(`تم السحب. الدور الآن عند ${nextP ? nextP.name : '-'} (مرحلة الرمي).`);
+        scheduleBotIfNeeded();
+      }
+    }
+
+    function executeInzili(callerIndex) {
+      if (!state.matchActive || state.roundEnded || state.matchFinished) return false;
+      const caller = state.players[callerIndex];
+      if (!caller) return false;
+
+      if (state.currentPlayerIndex !== callerIndex || state.turnPhase !== 'DISCARD' || state.hasDiscardedThisTurn) {
+        setStatusMessage('لا يمكن إعلان «انزلي!» بعد الرمي في نفس الدور — انتظر حتى يأتي دورك التالي قبل الرمي.');
+        return false;
+      }
+
+      const callerSum = calculateHandSum(caller.hand);
+      if (callerSum > 12) {
+        setStatusMessage(`لا يمكن إعلان «انزلي!» لأن مجموع يد ${caller.name} هو ${formatArabicNumber(callerSum)} (يجب أن يكون ١٢ أو أقل).`);
+        return false;
+      }
+
+      clearBotTimer();
+      state.roundEnded = true;
+      state.turnPhase = 'ROUND_END';
+      state.selectedCardIds = [];
+      state.privacyHidden = false;
+
+      const otherSums = state.players
+        .filter((_, idx) => idx !== callerIndex)
+        .map((p) => calculateHandSum(p.hand));
+      const minOtherSum = otherSums.length > 0 ? Math.min(...otherSums) : Infinity;
+
+      if (callerSum < minOtherSum) {
+        addLog(`أعلن ${caller.name} «انزلي!» بمجموع ${formatArabicNumber(callerSum)} وحقق أقل مجموع (+٠).`);
+        state.players.forEach((p, idx) => {
+          if (idx !== callerIndex) {
+            const s = calculateHandSum(p.hand);
+            p.score += s;
+            addLog(`أُضيف إلى ${p.name}: +${formatArabicNumber(s)} (المجموع: ${formatArabicNumber(p.score)}).`);
+          }
+        });
+        setStatusMessage(`أعلن ${caller.name} «انزلي!» بنجاح وحصل على ٠ نقطة!`);
+      } else {
+        const penalty = callerSum * 2 + Math.max(0, callerSum - minOtherSum);
+        caller.score += penalty;
+        addLog(`أعلن ${caller.name} «انزلي!» بمجموع ${formatArabicNumber(callerSum)} وتم التدبيل (+${formatArabicNumber(penalty)}).`);
+        state.players.forEach((p, idx) => {
+          if (idx !== callerIndex) {
+            const s = calculateHandSum(p.hand);
+            p.score += s;
+            addLog(`أُضيف إلى ${p.name}: +${formatArabicNumber(s)} (المجموع: ${formatArabicNumber(p.score)}).`);
+          }
+        });
+        setStatusMessage(`تم تدبيل نتيجة ${caller.name} (+${formatArabicNumber(penalty)})!`);
+      }
+
+      const loser = state.players.find((p) => p.score >= state.lossLimit);
+      if (loser) {
+        state.matchFinished = true;
+        state.loserId = loser.id;
+        addLog(`وصل ${loser.name} إلى حد الخسارة (${formatArabicNumber(loser.score)} / ${formatArabicNumber(state.lossLimit)}) وخسر المباراة.`);
+        setStatusMessage(`انتهت المباراة: وصل ${loser.name} إلى حد الخسارة (${formatArabicNumber(state.lossLimit)}).`);
+      }
+
+      broadcastSnapshotIfHost();
+      renderAll();
+      return true;
+    }
+
+    function callInzili() {
+      const viewerIdx = getViewedPlayerIndex();
+      const viewer = state.players[viewerIdx];
+      if (!viewer || viewer.isBot) return;
+      if (state.currentPlayerIndex !== viewerIdx || state.turnPhase !== 'DISCARD' || state.hasDiscardedThisTurn) {
+        setStatusMessage('يُسمح بإعلان «انزلي!» عند حلول دورك وقبل الرمي فقط.');
+        return;
+      }
+
+      if (state.isOnline && state.hostId !== state.localPlayerId) {
+        sendRoomMessage('INZILI_CMD', { playerIndex: viewerIdx });
+        return;
+      }
+
+      executeInzili(viewerIdx);
+    }
+
+    /* Bot AI */
+    function findBotDiscardCardIds(player) {
+      const pool = [...player.hand];
+      if (pool.length === 0) return [];
+
+      const byRank = new Map();
+      const bySuit = new Map();
+      for (const c of pool) {
+        if (!byRank.has(c.rankCode)) byRank.set(c.rankCode, []);
+        byRank.get(c.rankCode).push(c);
+        if (!bySuit.has(c.suitKey)) bySuit.set(c.suitKey, []);
+        bySuit.get(c.suitKey).push(c);
+      }
+
+      let bestGroup = null;
+      let bestPts = -1;
+      for (const group of [...byRank.values(), ...bySuit.values()]) {
+        if (group.length >= 2) {
+          const pts = group.reduce((acc, c) => acc + c.points, 0);
+          if (pts > bestPts) {
+            bestPts = pts;
+            bestGroup = group;
+          }
+        }
+      }
+
+      if (bestGroup && bestPts >= 10) return bestGroup.map((c) => c.id);
+
+      let highest = pool[0];
+      for (const c of pool) {
+        if (c.points > highest.points) highest = c;
+      }
+      return [highest.id];
+    }
+
+    function scheduleBotIfNeeded() {
+      clearBotTimer();
+      if (state.isOnline || state.screen !== 'GAME' || !state.matchActive || state.roundEnded || state.matchFinished) return;
+      const active = state.players[state.currentPlayerIndex];
+      if (!active || !active.isBot) return;
+
+      state.botTimerId = setTimeout(() => {
+        safeCall(() => {
+          state.botTimerId = null;
+          if (state.roundEnded || state.matchFinished) return;
+          const bot = state.players[state.currentPlayerIndex];
+          if (!bot || !bot.isBot) return;
+
+          if (state.turnPhase === 'DISCARD' && !state.hasDiscardedThisTurn && calculateHandSum(bot.hand) <= 8 && Math.random() < 0.72) {
+            executeInzili(state.currentPlayerIndex);
+            return;
+          }
+
+          if (state.turnPhase === 'DISCARD') {
+            const ids = findBotDiscardCardIds(bot);
+            if (performDiscard(state.currentPlayerIndex, ids)) {
+              renderAll();
+              setStatusMessage(`${bot.name} رمى بطاقاته وهو الآن في مرحلة السحب...`);
+              scheduleBotIfNeeded();
+            }
+          } else if (state.turnPhase === 'DRAW') {
+            const preferLeft = bot.leftDiscard && bot.leftDiscard.points <= 5;
+            if (performDraw(state.currentPlayerIndex, preferLeft ? 'LEFT' : 'DECK')) {
+              const nextP = state.players[state.currentPlayerIndex];
+              renderAll();
+              setStatusMessage(`${bot.name} أنهى دوره — الدور الآن عند ${nextP ? nextP.name : '-'}.`);
+              scheduleBotIfNeeded();
+            }
+          }
+        });
+      }, 650);
+    }
+
+    /* Rendering */
+    function renderSetupScreen() {
+      const locked = isSetupLocked();
+      const lockBadge = document.getElementById('lock-status-badge');
+      if (lockBadge) {
+        lockBadge.textContent = locked
+          ? `مقفلة حتى حد الخسارة (${formatArabicNumber(state.lossLimit)})`
+          : 'الإعدادات متاحة';
+      }
+
+      const modeHint = document.getElementById('mode-hint-text');
+      if (modeHint) {
+        modeHint.textContent =
+          state.setupMode === 'SHILLA' ? 'اللعب مع الشلة' : state.setupMode === 'BOT' ? 'اللعب مع بوت' : 'غرفة أونلاين';
+      }
+
+      const activeCls = 'bg-amber-400/25 border-amber-300 text-amber-200';
+      const inactiveCls = 'bg-black/30 border-amber-400/25 text-amber-100/75 hover:border-amber-400/50';
+
+      for (const [m, id] of [
+        ['SHILLA', 'mode-shilla-btn'],
+        ['BOT', 'mode-bot-btn'],
+        ['ONLINE', 'mode-online-btn']
+      ]) {
+        const btn = document.getElementById(id);
+        if (btn) {
+          btn.className = `py-2.5 px-2 rounded-xl border font-black text-xs sm:text-sm cursor-pointer transition ${
+            state.setupMode === m ? activeCls : inactiveCls
+          }`;
+          btn.disabled = locked;
+        }
+      }
+
+      for (const cnt of [2, 3, 4]) {
+        const btn = document.getElementById(`count-${cnt}-btn`);
+        if (btn) {
+          btn.className = `py-2.5 px-2 rounded-xl border font-black text-xs sm:text-sm cursor-pointer transition ${
+            state.setupCount === cnt ? activeCls : inactiveCls
+          }`;
+          btn.disabled = locked;
+        }
+      }
+
+      for (const lim of [250, 500, 750]) {
+        const btn = document.getElementById(`limit-${lim}-btn`);
+        if (btn) {
+          btn.className = `px-4 py-2 rounded-xl border font-black text-xs sm:text-sm cursor-pointer transition ${
+            state.setupLossLimit === lim ? activeCls : inactiveCls
+          }`;
+          btn.disabled = locked;
+        }
+      }
+
+      const isOnlineSetup = state.setupMode === 'ONLINE';
+      document.getElementById('local-names-block')?.classList.toggle('hidden', isOnlineSetup);
+      document.getElementById('online-room-block')?.classList.toggle('hidden', !isOnlineSetup);
+      document.getElementById('btn-start-match')?.classList.toggle('hidden', isOnlineSetup);
+
+      const inviteNotice = document.getElementById('invite-link-notice');
+      const inviteNoticeText = document.getElementById('invite-link-notice-text');
+      if (inviteNotice) {
+        inviteNotice.classList.toggle('hidden', !(isOnlineSetup && state.invitedRoomCode));
+        if (inviteNoticeText && state.invitedRoomCode) {
+          inviteNoticeText.textContent = `تم اكتشاف رمز الغرفة (${state.invitedRoomCode}) من الرابط الدعوي؛ اكتب اسمك ثم اضغط «انضمام للغرفة».`;
+        }
+      }
+
+      for (let i = 0; i < 4; i++) {
+        const card = document.getElementById(`name-card-${i}`);
+        const input = document.getElementById(`player-name-input-${i}`);
+        if (card) card.classList.toggle('hidden', i >= state.setupCount);
+        if (input) {
+          input.disabled = locked;
+          if (!input.value.trim()) {
+            input.value = state.setupNames[i] || getDefaultName(i, state.setupMode);
+          }
+        }
+      }
+
+      const limitPill = document.getElementById('limit-pill');
+      if (limitPill) {
+        limitPill.textContent = `الحد: ${formatArabicNumber(state.setupLossLimit)}`;
+      }
+    }
+
+    function renderInviteBar() {
+      const bar = document.getElementById('online-invite-bar');
+      if (!bar) return;
+      const show = Boolean(state.isOnline && state.roomCode);
+      bar.classList.toggle('hidden', !show);
+      if (!show) return;
+
+      const codeEl = document.getElementById('invite-room-code-text');
+      const urlEl = document.getElementById('invite-url-display');
+      if (codeEl) codeEl.textContent = state.roomCode;
+      if (urlEl) urlEl.textContent = buildInviteLink(state.roomCode);
+    }
+
+    function createFaceUpCardElement(card, { selected = false, clickable = false, onClick = null } = {}) {
+      const el = document.createElement('div');
+      el.className = `playing-card ${selected ? 'selected' : ''} ${clickable ? 'cursor-pointer' : ''}`;
+      const colorCls = card.isRed ? 'suit-red' : 'suit-black';
+
+      el.innerHTML = `
+        <div class="flex items-center justify-between text-xs sm:text-sm font-black leading-none ${colorCls}">
+          <span>${card.rankLabel}</span><span>${card.suitSymbol}</span>
+        </div>
+        <div class="text-center text-2xl sm:text-3xl leading-none font-black ${colorCls}">${card.suitSymbol}</div>
+        <div class="flex items-center justify-between text-[11px] font-extrabold leading-none ${colorCls}">
+          <span>${formatArabicNumber(card.points)}ن</span><span>${card.rankLabel}</span>
+        </div>
+      `;
+
+      if (clickable && typeof onClick === 'function') {
+        el.addEventListener('click', (e) => {
+          e.preventDefault();
+          safeCall(() => onClick(card.id));
+        });
+      }
+      return el;
+    }
+
+    function createCardBackElement(label = 'انزلي') {
+      const el = document.createElement('div');
+      el.className = 'playing-card card-back items-center justify-center text-center';
+      el.innerHTML = `
+        <div class="w-10 h-10 rounded-full border border-amber-300/60 flex items-center justify-center text-lg font-black">♠</div>
+        <span class="text-xs font-black tracking-wide text-amber-200">${label}</span>
+      `;
+      return el;
+    }
+
+    function renderPlayersStrip() {
+      const strip = document.getElementById('players-strip');
+      if (!strip) return;
+      strip.innerHTML = '';
+
+      state.players.forEach((p, idx) => {
+        const isTurn = state.matchActive && !state.roundEnded && idx === state.currentPlayerIndex;
+        const isLoser = state.loserId === p.id;
+        const handSum = calculateHandSum(p.hand);
+
+        const box = document.createElement('div');
+        box.className = `rounded-2xl p-3.5 border transition ${
+          isLoser
+            ? 'bg-red-950/85 border-red-400/70'
+            : isTurn
+            ? 'burgundy-panel border-amber-300 ring-2 ring-amber-300/40'
+            : 'luxury-surface border-amber-400/25'
+        }`;
+
+        const hideDetails = shouldHideHandAndSum(p);
+        const showSum = !hideDetails && (state.roundEnded || !p.isBot);
+        const sumLabel = hideDetails
+          ? 'مجموع اليد: مخفي'
+          : showSum
+          ? `مجموع اليد: ${formatArabicNumber(handSum)}`
+          : `البطاقات: ${formatArabicNumber(p.hand.length)}`;
+
+        const tagText = p.isBot ? 'بوت' : p.id === state.localPlayerId && state.isOnline ? 'أنت' : 'لاعب';
+
+        box.innerHTML = `
+          <div class="flex items-center justify-between gap-2">
+            <span class="font-black text-sm text-amber-200 truncate">${p.name}</span>
+            <span class="px-2 py-0.5 rounded-lg bg-black/35 border border-amber-400/30 text-[11px] font-bold text-amber-100">${tagText}</span>
+          </div>
+          <div class="mt-2 flex items-baseline justify-between gap-2">
+            <span class="text-xs font-bold text-emerald-100/85">${sumLabel}</span>
+            <span class="text-base font-black text-amber-300">${formatArabicNumber(p.score)} <span class="text-xs">نقطة</span></span>
+          </div>
+        `;
+        strip.appendChild(box);
+      });
+    }
+
+    function renderCenterPiles() {
+      const viewerIdx = getViewedPlayerIndex();
+      const viewer = state.players[viewerIdx];
+      const activePlayer = state.players[state.currentPlayerIndex];
+
+      const leftSlot = document.getElementById('left-discard-slot');
+      const leftLabel = document.getElementById('left-discard-label');
+      const leftHint = document.getElementById('left-discard-hint');
+      const deckSlot = document.getElementById('draw-deck-slot');
+      const deckLabel = document.getElementById('deck-count-label');
+
+      if (deckLabel) {
+        deckLabel.textContent = `الرزمة المقلوبة (${formatArabicNumber(state.drawPile.length)})`;
+      }
+      if (deckSlot) {
+        deckSlot.innerHTML = '';
+        deckSlot.appendChild(createCardBackElement('سحب'));
+      }
+
+      const targetLeftOwner = state.isOnline ? viewer : activePlayer;
+      if (leftSlot) {
+        leftSlot.innerHTML = '';
+        const sourceTag = targetLeftOwner && targetLeftOwner.leftSourceLabel
+          ? targetLeftOwner.leftSourceLabel
+          : 'من السابق';
+        if (leftLabel) {
+          leftLabel.textContent = `من يسارك (${sourceTag})`;
+        }
+
+        const leftCard = targetLeftOwner ? targetLeftOwner.leftDiscard : null;
+        if (leftCard) {
+          const canDrawLeft =
+            state.matchActive &&
+            !state.roundEnded &&
+            !state.matchFinished &&
+            viewer &&
+            !viewer.isBot &&
+            state.currentPlayerIndex === viewerIdx &&
+            state.turnPhase === 'DRAW' &&
+            !shouldHideHandAndSum(viewer);
+
+          leftSlot.appendChild(
+            createFaceUpCardElement(leftCard, {
+              clickable: canDrawLeft,
+              onClick: () => drawAction('LEFT')
+            })
+          );
+          if (leftHint) {
+            leftHint.textContent = `ورقة يسار (${sourceTag}): ${leftCard.rankLabel}${leftCard.suitSymbol}`;
+          }
+        } else {
+          const emptyEl = document.createElement('div');
+          emptyEl.className = 'playing-card items-center justify-center text-center bg-black/25 border-dashed border-amber-400/35 text-amber-200/60 text-xs font-bold';
+          emptyEl.textContent = 'فارغ';
+          leftSlot.appendChild(emptyEl);
+          if (leftHint) {
+            leftHint.textContent = 'لا توجد ورقة يسار متاحة حالياً';
+          }
+        }
+      }
+    }
+
+    function renderActiveHand() {
+      const container = document.getElementById('active-hand-container');
+      const titleEl = document.getElementById('active-hand-title');
+      const metaEl = document.getElementById('active-hand-meta');
+      if (!container) return;
+
+      container.innerHTML = '';
+      const viewerIdx = getViewedPlayerIndex();
+      const player = state.players[viewerIdx];
+      if (!player) return;
+
+      const hideDetails = shouldHideHandAndSum(player);
+      const sum = calculateHandSum(player.hand);
+
+      if (titleEl) titleEl.textContent = `بطاقات ${player.name}`;
+      if (metaEl) {
+        metaEl.textContent = hideDetails
+          ? 'مجموع اليد: مخفي (الهدف ≤ ١٢)'
+          : `مجموع اليد: ${formatArabicNumber(sum)} (الهدف ≤ ١٢)`;
+      }
+
+      if (hideDetails) {
+        player.hand.forEach(() => container.appendChild(createCardBackElement('مخفي')));
+        return;
+      }
+
+      const canSelect =
+        state.matchActive &&
+        !state.roundEnded &&
+        !state.matchFinished &&
+        !player.isBot &&
+        state.currentPlayerIndex === viewerIdx &&
+        state.turnPhase === 'DISCARD';
+
+      player.hand.forEach((card) => {
+        const isSelected = state.selectedCardIds.includes(card.id);
+        container.appendChild(
+          createFaceUpCardElement(card, {
+            selected: isSelected,
+            clickable: canSelect,
+            onClick: toggleSelectCard
+          })
+        );
+      });
+    }
+
+    function renderActionButtons() {
+      const viewerIdx = getViewedPlayerIndex();
+      const viewer = state.players[viewerIdx];
+      const discardBtn = document.getElementById('btn-discard');
+      const clearBtn = document.getElementById('btn-clear-selection');
+      const inziliBtn = document.getElementById('btn-inzili');
+      const privacyBtn = document.getElementById('btn-toggle-privacy');
+      const nextRoundBtn = document.getElementById('btn-next-round');
+
+      if (privacyBtn) {
+        privacyBtn.textContent = state.privacyHidden ? 'إظهار البطاقات' : 'إخفاء البطاقات';
+      }
+
+      if (nextRoundBtn) {
+        const showStartOrNext =
+          (!state.matchActive && state.isOnline && state.hostId === state.localPlayerId) ||
+          (state.roundEnded && !state.matchFinished);
+        nextRoundBtn.classList.toggle('hidden', !showStartOrNext);
+        nextRoundBtn.textContent = !state.matchActive ? 'بدء الجولة ١' : 'جولة جديدة';
+      }
+
+      const isMyTurn =
+        state.matchActive &&
+        !state.roundEnded &&
+        !state.matchFinished &&
+        viewer &&
+        !viewer.isBot &&
+        state.currentPlayerIndex === viewerIdx &&
+        !shouldHideHandAndSum(viewer);
+
+      const selectedCards = viewer
+        ? viewer.hand.filter((c) => state.selectedCardIds.includes(c.id))
+        : [];
+
+      const canDiscard =
+        isMyTurn &&
+        state.turnPhase === 'DISCARD' &&
+        areCardsValidDiscardGroup(selectedCards);
+
+      const canInzili = canDeclareInziliForPlayer(viewerIdx);
+
+      if (discardBtn) discardBtn.disabled = !canDiscard;
+      if (clearBtn) clearBtn.disabled = !isMyTurn || state.selectedCardIds.length === 0;
+      if (inziliBtn) inziliBtn.disabled = !canInzili;
+    }
+
+    function renderRoundInfoAndLog() {
+      const roomBadge = document.getElementById('room-code-badge');
+      const roundBadge = document.getElementById('round-badge');
+      const turnBadge = document.getElementById('turn-badge');
+      const phaseBadge = document.getElementById('phase-badge');
+      const limitPill = document.getElementById('limit-pill');
+      const logList = document.getElementById('log-list');
+
+      const active = state.players[state.currentPlayerIndex];
+
+      if (roomBadge) {
+        roomBadge.classList.toggle('hidden', !state.isOnline);
+        roomBadge.textContent = `الغرفة: ${state.roomCode || '—'}`;
+      }
+
+      if (roundBadge) roundBadge.textContent = `الجولة ${formatArabicNumber(state.roundNumber)}`;
+      if (turnBadge) {
+        turnBadge.textContent = state.matchFinished
+          ? 'انتهت المباراة'
+          : state.roundEnded
+          ? 'انتهت الجولة'
+          : !state.matchActive
+          ? 'بانتظار البدء'
+          : `الدور: ${active ? active.name : '-'}`;
+      }
+
+      if (phaseBadge) {
+        if (!state.matchActive) phaseBadge.textContent = 'المرحلة: التحضير';
+        else if (state.matchFinished) phaseBadge.textContent = 'المرحلة: نهاية المباراة';
+        else if (state.roundEnded) phaseBadge.textContent = 'المرحلة: نهاية الجولة';
+        else phaseBadge.textContent = state.turnPhase === 'DISCARD' ? 'المرحلة: الرمي' : 'المرحلة: السحب';
+      }
+
+      if (limitPill) limitPill.textContent = `الحد: ${formatArabicNumber(state.lossLimit)}`;
+
+      if (logList) {
+        logList.innerHTML = '';
+        state.logs.forEach((item) => {
+          const row = document.createElement('div');
+          row.className = 'py-1 border-b border-white/10 last:border-b-0';
+          row.textContent = `• ${item}`;
+          logList.appendChild(row);
+        });
+      }
+    }
+
+    function renderAll() {
+      renderSetupScreen();
+      renderInviteBar();
+      renderPlayersStrip();
+      renderCenterPiles();
+      renderActiveHand();
+      renderActionButtons();
+      renderRoundInfoAndLog();
+      const statusEl = document.getElementById('status-text');
+      if (statusEl) statusEl.textContent = state.statusMessage;
+    }
+
+    function bindEvents() {
+      const onClick = (id, fn) => {
+        const el = document.getElementById(id);
+        if (el) {
+          el.addEventListener('click', (e) => {
+            e.preventDefault();
+            safeCall(fn);
+          });
+        }
+      };
+
+      onClick('btn-open-rules', () => openRulesModal());
+      onClick('btn-close-rules-x', () => closeRulesModal());
+      onClick('btn-close-rules-ok', () => closeRulesModal());
+      onClick('btn-back-setup', () => handleSetupButtonClick());
+
+      onClick('mode-shilla-btn', () => setSetupMode('SHILLA'));
+      onClick('mode-bot-btn', () => setSetupMode('BOT'));
+      onClick('mode-online-btn', () => setSetupMode('ONLINE'));
+
+      onClick('count-2-btn', () => setSetupPlayerCount(2));
+      onClick('count-3-btn', () => setSetupPlayerCount(3));
+      onClick('count-4-btn', () => setSetupPlayerCount(4));
+
+      onClick('limit-250-btn', () => setSetupLossLimit(250));
+      onClick('limit-500-btn', () => setSetupLossLimit(500));
+      onClick('limit-750-btn', () => setSetupLossLimit(750));
+
+      onClick('btn-start-match', () => startMatchFromSetup());
+      onClick('btn-create-online-room', () => createOnlineRoom());
+      onClick('btn-join-online-room', () => joinOnlineRoom());
+
+      onClick('btn-copy-invite-link', () => copyInviteLink());
+      onClick('btn-copy-room-code', () => copyRoomCodeOnly());
+
+      onClick('btn-toggle-privacy', () => togglePrivacyMask());
+      onClick('btn-next-round', () => startOrAdvanceRoundAuthoritative());
+      onClick('btn-new-match', () => resetMatchSamePlayers());
+
+      onClick('draw-deck-slot', () => drawAction('DECK'));
+      onClick('btn-discard', () => discardSelectedCards());
+      onClick('btn-clear-selection', () => clearSelection());
+      onClick('btn-inzili', () => callInzili());
+
+      for (let i = 0; i < 4; i++) {
+        const input = document.getElementById(`player-name-input-${i}`);
+        if (input) {
+          input.addEventListener('input', () => {
+            safeCall(() => {
+              if (isSetupLocked()) {
+                input.value = state.setupNames[i] || getDefaultName(i, state.setupMode);
+                return;
+              }
+              state.setupNames[i] = input.value.trim() || getDefaultName(i, state.setupMode);
+            });
+          });
+        }
+      }
+
+      const rulesModal = document.getElementById('rules-modal');
+      if (rulesModal) {
+        rulesModal.addEventListener('click', (e) => {
+          if (e.target === rulesModal) safeCall(() => closeRulesModal());
+        });
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      safeCall(() => {
+        for (let i = 0; i < 4; i++) {
+          const input = document.getElementById(`player-name-input-${i}`);
+          if (input) input.value = getDefaultName(i, state.setupMode);
+        }
+        bindEvents();
+        detectInvitedRoomFromUrl();
+        switchScreen('SETUP');
+      });
+    });
+  </script>
+</body>
+</html>
